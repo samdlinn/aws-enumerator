@@ -15,32 +15,65 @@ The tool provides interface for result analysis. All results are saved in json f
 
 # Install
 
-If you have Go installed and configured (i.e. with `$GOPATH/bin` in your `$PATH`):
+Build this fork's profile-support branch with Go installed:
 
+```sh
+git clone --branch feature/aws-profile https://github.com/samdlinn/aws-enumerator.git
+cd aws-enumerator
+go build -o aws-enumerator .
 ```
-go get -u github.com/shabarkin/aws-enumerator
-```
-```
-go install -v github.com/shabarkin/aws-enumerator@latest
-```
+
+The Go module path remains `github.com/shabarkin/aws-enumerator` so internal
+imports continue to resolve within the fork. Installing the upstream module with
+`go install github.com/shabarkin/aws-enumerator@latest` will install the upstream
+version instead of this branch.
 
 # Basic Usage
 
 ## Credentials setup
 
-To setup credentials, you should use cred subcommand and supply credentials: 
+### AWS profiles
 
-```bash
-./aws-enumerator cred -aws_access_key_id AKIA***********XKU -aws_region us-west-2 -aws_secret_access_key kIm6m********************5JPF
+Use an existing AWS CLI profile without creating a `.env` file:
+
+```sh
+./aws-enumerator enum -profile dev -services all
+./aws-enumerator enum --profile dev -services iam,s3
+./aws-enumerator --profile dev enum -services all
+AWS_PROFILE=dev ./aws-enumerator enum -services all
 ```
 
-![_img/Screenshot_2021-04-10_at_14.43.51.png](_img/Screenshot_2021-04-10_at_14.43.51.png)
+Both `-profile` and `--profile` accept a profile name before or after `enum`.
+The flag selects a profile from the standard AWS shared `config` and
+`credentials` files and overrides `AWS_PROFILE`. The SDK also honors
+`AWS_CONFIG_FILE` and `AWS_SHARED_CREDENTIALS_FILE` for custom file locations.
+Profile selection applies to both the STS credential check and every service client.
 
-![_img/Screenshot_2021-04-10_at_14.45.51.png](_img/Screenshot_2021-04-10_at_14.45.51.png)
+When a profile flag, `AWS_PROFILE`, or `AWS_DEFAULT_PROFILE` is set, the tool does
+not read or require `.env`. An explicit profile flag uses that profile's credential
+provider, even if static credentials are exported in the shell. With only
+`AWS_PROFILE`, exported credentials retain the AWS SDK's normal precedence.
+Region environment variables still take precedence over the region in a profile.
+Configure a region in the profile or set `AWS_REGION`.
 
-It creates `.env` file, which is loaded to global variables each time you call `enum` subcommand.
+Credential providers are handled by the pinned AWS SDK for Go v2 version, including
+shared static/session credentials and supported role profiles. This change does
+not add modern IAM Identity Center `sso_session` support or an interactive login flow.
+Missing profiles, missing regions, and failed authentication return a nonzero exit
+status before service enumeration begins.
 
-**WARNING:** If you set these values `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` in global variables manually before running the tool, it will not be able to load AWS Credentials specified in `.env` file ( It can't overwrite global variables ).
+### Existing .env workflow
+
+You can still save credentials using the `cred` subcommand:
+
+```sh
+./aws-enumerator cred -aws_access_key_id ACCESS_KEY -aws_region us-west-2 -aws_secret_access_key SECRET_KEY
+```
+
+This creates `.env` in the current directory. When no profile selector is set,
+`enum` loads `.env` if present. Existing shell environment variables take precedence
+over values in `.env`. If `.env` is absent, the tool uses the SDK's normal credential
+chain, including the default shared profile and workload credentials.
 
 ## Enumeration
 

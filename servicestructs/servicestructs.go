@@ -1,10 +1,7 @@
 package servicestructs
 
 import (
-	"context"
-	"log"
-
-	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/acm"
 	"github.com/aws/aws-sdk-go-v2/service/amplify"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
@@ -111,16 +108,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/workspaces"
 	"github.com/aws/aws-sdk-go-v2/service/xray"
 	"github.com/shabarkin/aws-enumerator/servicemaster"
-	"github.com/shabarkin/aws-enumerator/utils"
 )
 
-func GetServices() []servicemaster.ServiceMaster {
-
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-
-	if err != nil {
-		log.Fatalln(utils.Red("Error:"), utils.Yellow("Unable to load SDK config,"))
-	}
+func GetServices(cfg aws.Config) []servicemaster.ServiceMaster {
 
 	acm_svc := &servicemaster.ServiceMaster{
 		Svc:     acm.NewFromConfig(cfg),

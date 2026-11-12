@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"context"
 	"flag"
 	"fmt"
 
@@ -20,19 +21,20 @@ func changeSpeedForTime(speed string) (time int) {
 	return time
 }
 
-func SetEnumerationPipeline(services, speed *string) {
-	// Load Global Variables from file
-	utils.LoadEnv()
-
-	if servicemaster.CheckAWSCredentials() {
-
-		servicemaster.ServiceCall(
-			servicestructs.GetServices(),
-			utils.ProcessServiceArgument(*services),
-			changeSpeedForTime(*speed),
-		)
-
+func SetEnumerationPipeline(services, speed, profile string) error {
+	cfg, err := LoadAWSConfig(context.Background(), profile)
+	if err != nil {
+		return err
 	}
+	if err := servicemaster.CheckAWSCredentials(context.Background(), cfg); err != nil {
+		return err
+	}
+	servicemaster.ServiceCall(
+		servicestructs.GetServices(cfg),
+		utils.ProcessServiceArgument(services),
+		changeSpeedForTime(speed),
+	)
+	return nil
 }
 
 func DumpInfo(services_dump *string, print_apicalls *bool, filter *string, errors_dump *bool) {
@@ -50,7 +52,7 @@ func DumpInfo(services_dump *string, print_apicalls *bool, filter *string, error
 }
 
 var Cloudrider_help string = `Usage:
-aws-enumerator [command]
+aws-enumerator [-profile NAME] [command]
 
 Available Commands:
   cred         Saves AWS credentials to .env file in a propriate format for later authentication
@@ -58,7 +60,8 @@ Available Commands:
   dump         Displays gathered information about AWS Services available for a AWS account
   
 Flags:
-  -h		   Help for cloudride
+  -profile     AWS shared profile for enum (also accepts --profile)
+  -h           Help for aws-enumerator
 `
 
 var Cloudrider_cred_help string = `Usage:
@@ -79,11 +82,14 @@ aws-enumerator enum [command]
 	  
 Flags:
   -services     Enumerate permissions specifying services divided by comma or 'all' for total enumeration
+  -profile      AWS shared profile (also accepts --profile); overrides AWS_PROFILE
   -speed        Speed parameter has three defitions : fast or normal or slow (default is normal)
 
 Example:
   ./aws-enumerator enum -services iam,sts,s3,ec2 -speed normal
   ./aws-enumerator enum -services all
+  ./aws-enumerator enum -profile dev -services all
+  ./aws-enumerator --profile dev enum -services iam,s3
 `
 
 var Cloudrider_dump_help string = `Usage:
@@ -116,10 +122,6 @@ var AWS_region *string = Cred.String("aws_region", "", "")
 var AWS_access_key_id *string = Cred.String("aws_access_key_id", "", "")
 var AWS_secret_access_key *string = Cred.String("aws_secret_access_key", "", "")
 var AWS_session_token *string = Cred.String("aws_session_token", "", "")
-
-var Enum *flag.FlagSet = flag.NewFlagSet("enum", flag.ExitOnError)
-var Services_enum *string = Enum.String("services", "all", "")
-var Speed *string = Enum.String("speed", "normal", "")
 
 var Dump *flag.FlagSet = flag.NewFlagSet("dump", flag.ExitOnError)
 var Services_dump *string = Dump.String("services", "all", "")

@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/shabarkin/aws-enumerator/utils"
 )
@@ -138,28 +138,12 @@ func (svc *ServiceMaster) save_result_to_file() {
 	ioutil.WriteFile(utils.ERROR_FILEPATH+svc.SvcName+"_errors.json", []byte(file_errors), 0644)
 }
 
-func CheckAWSCredentials() bool {
-	if utils.CheckEnvFileExistance() {
-		cfg, err := config.LoadDefaultConfig(context.TODO())
-		if err != nil {
-			fmt.Println(utils.Red("Error:"), utils.Yellow("Unable to load SDK config,"))
-			fmt.Println(utils.Green("Fix:"), utils.Yellow("The problem should be on our side, contact support please"))
-			fmt.Println(utils.Red("Trace:"), utils.Yellow(err))
-			os.Exit(1)
-		}
-
-		sts_svc := sts.NewFromConfig(cfg)
-		_, aws_err := sts_svc.GetCallerIdentity(context.TODO(), &sts.GetCallerIdentityInput{})
-		if aws_err != nil {
-			fmt.Println(utils.Red("Error:"), utils.Yellow("AWS Credentials are not valid"))
-			fmt.Println(utils.Green("Fix:"), utils.Yellow("Provide AWS Credentials, use `./aws-enumerator cred -h` command"))
-			fmt.Println(utils.Red("Trace:"), utils.Yellow(aws_err))
-			os.Exit(1)
-		}
-		return true
-	} else {
-		return false
+func CheckAWSCredentials(ctx context.Context, cfg aws.Config) error {
+	stsSvc := sts.NewFromConfig(cfg)
+	if _, err := stsSvc.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{}); err != nil {
+		return fmt.Errorf("unable to authenticate with AWS: %w", err)
 	}
+	return nil
 }
 
 func sleep_delay(i, speed int) {
